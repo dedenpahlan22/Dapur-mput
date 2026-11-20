@@ -1,0 +1,279 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isVerified() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function userStoreExists(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId));
+    }
+
+    function sheetExists(userId, sheetId) {
+      return exists(/databases/$(database)/documents/users/$(userId)/sheets/$(sheetId));
+    }
+
+    function areaExists(userId, areaId) {
+      return exists(/databases/$(database)/documents/users/$(userId)/areas/$(areaId));
+    }
+
+    function isValidUserStore(data, userId) {
+      return data.keys().hasAll(['ownerId', 'storeName', 'logoUrl', 'ownerName', 'ownerEmail', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'storeName', 'logoUrl', 'ownerName', 'ownerEmail', 'createdAt', 'updatedAt'])
+        && isValidId(data.ownerId)
+        && data.ownerId == userId
+        && data.ownerId == request.auth.uid
+        && data.storeName is string && data.storeName.size() >= 1 && data.storeName.size() <= 80
+        && data.logoUrl is string && data.logoUrl.size() <= 220000
+        && data.ownerName is string && data.ownerName.size() <= 100
+        && data.ownerEmail is string && data.ownerEmail.size() <= 150
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSheet(data, userId) {
+      return data.keys().hasAll(['ownerId', 'name', 'dateLabel', 'sortOrder', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'name', 'dateLabel', 'sortOrder', 'createdAt', 'updatedAt'])
+        && isValidId(data.ownerId)
+        && data.ownerId == userId
+        && data.ownerId == request.auth.uid
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 60
+        && data.dateLabel is string && data.dateLabel.size() <= 30
+        && data.sortOrder is number && data.sortOrder >= 0
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidArea(data, userId) {
+      return data.keys().hasAll(['ownerId', 'name', 'sortOrder', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'name', 'sortOrder', 'createdAt', 'updatedAt'])
+        && isValidId(data.ownerId)
+        && data.ownerId == userId
+        && data.ownerId == request.auth.uid
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 50
+        && data.sortOrder is number && data.sortOrder >= 0
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidMenuItem(data, userId) {
+      return data.keys().hasAll(['ownerId', 'name', 'basePrice', 'imageUrl', 'variants', 'addons', 'isActive', 'sortOrder', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'name', 'basePrice', 'imageUrl', 'variants', 'addons', 'isActive', 'sortOrder', 'createdAt', 'updatedAt'])
+        && isValidId(data.ownerId)
+        && data.ownerId == userId
+        && data.ownerId == request.auth.uid
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 80
+        && data.basePrice is number && data.basePrice >= 0
+        && data.imageUrl is string && data.imageUrl.size() <= 220000
+        && data.variants is list && data.variants.size() <= 20
+        && (data.variants.size() == 0 || data.variants[0] is map)
+        && data.addons is list && data.addons.size() <= 20
+        && (data.addons.size() == 0 || data.addons[0] is map)
+        && data.isActive is bool
+        && data.sortOrder is number && data.sortOrder >= 0
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidOrder(data, userId) {
+      return data.keys().hasAll(['ownerId', 'sheetId', 'areaId', 'areaName', 'customerName', 'items', 'notes', 'isPaid', 'totalAmount', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'sheetId', 'areaId', 'areaName', 'customerName', 'items', 'notes', 'isPaid', 'totalAmount', 'createdAt', 'updatedAt'])
+        && isValidId(data.ownerId)
+        && data.ownerId == userId
+        && data.ownerId == request.auth.uid
+        && isValidId(data.sheetId)
+        && isValidId(data.areaId)
+        && data.areaName is string && data.areaName.size() <= 50
+        && data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 100
+        && data.items is list && data.items.size() >= 1 && data.items.size() <= 50
+        && data.items[0] is map
+        && data.notes is string && data.notes.size() <= 500
+        && data.isPaid is bool
+        && data.totalAmount is number && data.totalAmount >= 0
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidExpense(data, userId) {
+      return data.keys().hasAll(['ownerId', 'sheetId', 'name', 'unitNote', 'amount', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'sheetId', 'name', 'unitNote', 'amount', 'createdAt', 'updatedAt'])
+        && isValidId(data.ownerId)
+        && data.ownerId == userId
+        && data.ownerId == request.auth.uid
+        && isValidId(data.sheetId)
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 80
+        && data.unitNote is string && data.unitNote.size() <= 40
+        && data.amount is number && data.amount >= 0
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow list: if false;
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserStore(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserStore(incoming(), userId)
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['storeName', 'logoUrl', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['ownerName', 'ownerEmail', 'updatedAt'])
+        );
+      allow delete: if false;
+
+      match /sheets/{sheetId} {
+        allow get: if isValidId(userId) && isValidId(sheetId) && isOwner(userId) && userStoreExists(userId);
+        allow list: if isValidId(userId) && isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(sheetId)
+          && isOwner(userId)
+          && isValidSheet(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && userStoreExists(userId);
+        allow update: if isValidId(userId) && isValidId(sheetId)
+          && isOwner(userId)
+          && isValidSheet(incoming(), userId)
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && userStoreExists(userId)
+          && (
+            incoming().diff(existing()).affectedKeys().hasOnly(['name', 'dateLabel', 'updatedAt']) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['sortOrder', 'updatedAt'])
+          );
+        allow delete: if isValidId(userId) && isValidId(sheetId) && isOwner(userId) && userStoreExists(userId);
+      }
+
+      match /areas/{areaId} {
+        allow get: if isValidId(userId) && isValidId(areaId) && isOwner(userId) && userStoreExists(userId);
+        allow list: if isValidId(userId) && isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(areaId)
+          && isOwner(userId)
+          && isValidArea(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && userStoreExists(userId);
+        allow update: if isValidId(userId) && isValidId(areaId)
+          && isOwner(userId)
+          && isValidArea(incoming(), userId)
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && userStoreExists(userId)
+          && (
+            incoming().diff(existing()).affectedKeys().hasOnly(['name', 'updatedAt']) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['sortOrder', 'updatedAt'])
+          );
+        allow delete: if isValidId(userId) && isValidId(areaId) && isOwner(userId) && userStoreExists(userId);
+      }
+
+      match /menuItems/{menuItemId} {
+        allow get: if isValidId(userId) && isValidId(menuItemId) && isOwner(userId) && userStoreExists(userId);
+        allow list: if isValidId(userId) && isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(menuItemId)
+          && isOwner(userId)
+          && isValidMenuItem(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && userStoreExists(userId);
+        allow update: if isValidId(userId) && isValidId(menuItemId)
+          && isOwner(userId)
+          && isValidMenuItem(incoming(), userId)
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && userStoreExists(userId)
+          && (
+            incoming().diff(existing()).affectedKeys().hasOnly(['name', 'basePrice', 'imageUrl', 'variants', 'addons', 'isActive', 'updatedAt']) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['isActive', 'updatedAt']) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['sortOrder', 'updatedAt'])
+          );
+        allow delete: if isValidId(userId) && isValidId(menuItemId) && isOwner(userId) && userStoreExists(userId);
+      }
+
+      match /orders/{orderId} {
+        allow get: if isValidId(userId) && isValidId(orderId) && isOwner(userId) && userStoreExists(userId);
+        allow list: if isValidId(userId) && isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(orderId)
+          && isOwner(userId)
+          && isValidOrder(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && userStoreExists(userId)
+          && sheetExists(userId, incoming().sheetId)
+          && areaExists(userId, incoming().areaId);
+        allow update: if isValidId(userId) && isValidId(orderId)
+          && isOwner(userId)
+          && isValidOrder(incoming(), userId)
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && userStoreExists(userId)
+          && sheetExists(userId, incoming().sheetId)
+          && (incoming().areaId == existing().areaId || areaExists(userId, incoming().areaId))
+          && (
+            incoming().diff(existing()).affectedKeys().hasOnly(['isPaid', 'updatedAt']) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['areaName', 'updatedAt']) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['sheetId', 'areaId', 'areaName', 'customerName', 'items', 'notes', 'isPaid', 'totalAmount', 'updatedAt'])
+          );
+        allow delete: if isValidId(userId) && isValidId(orderId) && isOwner(userId) && userStoreExists(userId);
+      }
+
+      match /expenses/{expenseId} {
+        allow get: if isValidId(userId) && isValidId(expenseId) && isOwner(userId) && userStoreExists(userId);
+        allow list: if isValidId(userId) && isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(expenseId)
+          && isOwner(userId)
+          && isValidExpense(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && userStoreExists(userId)
+          && sheetExists(userId, incoming().sheetId);
+        allow update: if isValidId(userId) && isValidId(expenseId)
+          && isOwner(userId)
+          && isValidExpense(incoming(), userId)
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && userStoreExists(userId)
+          && sheetExists(userId, incoming().sheetId)
+          && (
+            incoming().diff(existing()).affectedKeys().hasOnly(['name', 'unitNote', 'amount', 'updatedAt'])
+          );
+        allow delete: if isValidId(userId) && isValidId(expenseId) && isOwner(userId) && userStoreExists(userId);
+      }
+    }
+  }
+}

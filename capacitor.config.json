@@ -1,0 +1,8 @@
+{
+  "appId": "com.mputpos.app",
+  "appName": "MputPos",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}

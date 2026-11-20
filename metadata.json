@@ -1,0 +1,6 @@
+{
+  "name": "MputPos",
+  "description": "Aplikasi kasir dan daftar pesanan makanan MputPos dengan hitung modal bahan, omset kotor & bersih, sheet tanggal, filter area, ekspor spreadsheet, dan sinkronisasi akun Google.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
