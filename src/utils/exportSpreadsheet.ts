@@ -49,12 +49,97 @@ export function buildMenuPrepSummary(orders: Order[]) {
   return Array.from(map.values()).sort((a, b) => b.totalQty - a.totalQty);
 }
 
-export function exportSheetToExcel(
+interface CapacitorPlugins {
+  Filesystem?: {
+    writeFile: (options: {
+      path: string;
+      data: string;
+      directory: string;
+    }) => Promise<{ uri: string }>;
+    getUri: (options: {
+      path: string;
+      directory: string;
+    }) => Promise<{ uri: string }>;
+  };
+  Share?: {
+    share: (options: {
+      title?: string;
+      text?: string;
+      url?: string;
+      dialogTitle?: string;
+    }) => Promise<unknown>;
+  };
+}
+
+function getCapacitor() {
+  if (typeof window === 'undefined') return null;
+  return (
+    window as unknown as {
+      Capacitor?: {
+        isNativePlatform?: () => boolean;
+        Plugins?: CapacitorPlugins;
+      };
+    }
+  ).Capacitor ?? null;
+}
+
+function utf8ToBase64(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+async function shareNativeFile(
+  fileName: string,
+  base64Data: string,
+  dialogTitle: string
+): Promise<boolean> {
+  const cap = getCapacitor();
+  if (!cap?.isNativePlatform?.()) return false;
+
+  const fs = cap.Plugins?.Filesystem;
+  const share = cap.Plugins?.Share;
+  if (!fs || !share) {
+    throw new Error(
+      'Plugin penyimpanan APK belum terpasang. Update & build ulang APK terbaru dari GitHub.'
+    );
+  }
+
+  const pureBase64 = base64Data.includes(';base64,')
+    ? base64Data.split(';base64,')[1]
+    : base64Data;
+
+  await fs.writeFile({
+    path: fileName,
+    data: pureBase64,
+    directory: 'CACHE',
+  });
+
+  const { uri } = await fs.getUri({
+    path: fileName,
+    directory: 'CACHE',
+  });
+
+  await share.share({
+    title: fileName,
+    text: `Ekspor ${fileName}`,
+    url: uri,
+    dialogTitle,
+  });
+
+  return true;
+}
+
+export async function exportSheetToExcel(
   sheet: Sheet,
   orders: Order[],
   expenses: Expense[],
   storeName = 'MputPos'
-) {
+): Promise<'native-shared' | 'downloaded'> {
   const wb = XLSX.utils.book_new();
 
   // Sheet 1: Daftar Pesanan
@@ -163,14 +248,23 @@ export function exportSheetToExcel(
 
   const safeSheetName = sheet.name.replace(/[^a-zA-Z0-9_-]+/g, '_');
   const safeStore = storeName.replace(/[^a-zA-Z0-9_-]+/g, '_');
-  XLSX.writeFile(wb, `${safeStore}_${safeSheetName}.xlsx`);
+  const fileName = `${safeStore}_${safeSheetName}.xlsx`;
+
+  if (getCapacitor()?.isNativePlatform?.()) {
+    const base64 = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
+    await shareNativeFile(fileName, base64, 'Simpan / Buka File Excel');
+    return 'native-shared';
+  }
+
+  XLSX.writeFile(wb, fileName);
+  return 'downloaded';
 }
 
-export function exportSheetToCSV(
+export async function exportSheetToCSV(
   sheet: Sheet,
   orders: Order[],
   storeName = 'MputPos'
-) {
+): Promise<'native-shared' | 'downloaded'> {
   const headers = [
     'No',
     'Nama Pemesan',
@@ -206,17 +300,26 @@ export function exportSheetToCSV(
   ];
 
   const csvContent = '\uFEFF' + lines.join('\n');
+  const safeSheetName = sheet.name.replace(/[^a-zA-Z0-9_-]+/g, '_');
+  const safeStore = storeName.replace(/[^a-zA-Z0-9_-]+/g, '_');
+  const fileName = `${safeStore}_${safeSheetName}.csv`;
+
+  if (getCapacitor()?.isNativePlatform?.()) {
+    const base64 = utf8ToBase64(csvContent);
+    await shareNativeFile(fileName, base64, 'Buka di Google Sheets / Simpan CSV');
+    return 'native-shared';
+  }
+
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
-  const safeSheetName = sheet.name.replace(/[^a-zA-Z0-9_-]+/g, '_');
-  const safeStore = storeName.replace(/[^a-zA-Z0-9_-]+/g, '_');
   link.href = url;
-  link.download = `${safeStore}_${safeSheetName}.csv`;
+  link.download = fileName;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+  return 'downloaded';
 }
 
 export function buildWhatsAppSummary(

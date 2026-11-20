@@ -55,6 +55,11 @@ export const OrdersView: React.FC = () => {
   // Export modal
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [copiedSummary, setCopiedSummary] = useState(false);
+  const [exportingType, setExportingType] = useState<'xlsx' | 'csv' | null>(null);
+  const [exportFeedback, setExportFeedback] = useState<{
+    type: 'ok' | 'err';
+    text: string;
+  } | null>(null);
 
   // Inline delete confirm
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -623,22 +628,58 @@ export const OrdersView: React.FC = () => {
               </button>
             </div>
 
+            {exportFeedback && (
+              <div
+                className={`mt-4 rounded-xl border px-3.5 py-2.5 text-xs font-medium ${
+                  exportFeedback.type === 'err'
+                    ? 'border-rose-200 bg-rose-50 text-rose-700'
+                    : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                }`}
+              >
+                {exportFeedback.text}
+              </div>
+            )}
+
             <div className="mt-5 space-y-2.5">
               <button
                 type="button"
-                onClick={() => {
-                  exportSheetToExcel(
-                    activeSheet,
-                    filteredOrders,
-                    sheetExpenses,
-                    store?.storeName || 'MputPos'
-                  );
+                disabled={exportingType !== null}
+                onClick={async () => {
+                  setExportFeedback(null);
+                  setExportingType('xlsx');
+                  try {
+                    const res = await exportSheetToExcel(
+                      activeSheet,
+                      filteredOrders,
+                      sheetExpenses,
+                      store?.storeName || 'MputPos'
+                    );
+                    setExportFeedback({
+                      type: 'ok',
+                      text:
+                        res === 'native-shared'
+                          ? 'File Excel siap! Pilih Google Sheets, Drive, atau File untuk menyimpan.'
+                          : 'File Excel (.xlsx) berhasil diunduh.',
+                    });
+                  } catch (err) {
+                    setExportFeedback({
+                      type: 'err',
+                      text:
+                        err instanceof Error
+                          ? err.message
+                          : 'Gagal mengekspor Excel.',
+                    });
+                  } finally {
+                    setExportingType(null);
+                  }
                 }}
-                className="flex w-full items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-left hover:bg-emerald-50 transition-colors min-h-[60px]"
+                className="flex w-full items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-left hover:bg-emerald-50 disabled:opacity-60 transition-colors min-h-[60px]"
               >
                 <div>
                   <p className="text-sm font-bold text-emerald-950">
-                    Download Excel (.xlsx)
+                    {exportingType === 'xlsx'
+                      ? 'Menyiapkan File Excel...'
+                      : 'Download Excel (.xlsx)'}
                   </p>
                   <p className="text-xs text-emerald-700">
                     3 tab lengkap: Pesanan, Rekap Menu, & Modal/Omset
@@ -649,18 +690,42 @@ export const OrdersView: React.FC = () => {
 
               <button
                 type="button"
-                onClick={() => {
-                  exportSheetToCSV(
-                    activeSheet,
-                    filteredOrders,
-                    store?.storeName || 'MputPos'
-                  );
+                disabled={exportingType !== null}
+                onClick={async () => {
+                  setExportFeedback(null);
+                  setExportingType('csv');
+                  try {
+                    const res = await exportSheetToCSV(
+                      activeSheet,
+                      filteredOrders,
+                      store?.storeName || 'MputPos'
+                    );
+                    setExportFeedback({
+                      type: 'ok',
+                      text:
+                        res === 'native-shared'
+                          ? 'File CSV siap! Pilih Google Sheets atau Simpan ke Perangkat.'
+                          : 'File CSV berhasil diunduh.',
+                    });
+                  } catch (err) {
+                    setExportFeedback({
+                      type: 'err',
+                      text:
+                        err instanceof Error
+                          ? err.message
+                          : 'Gagal mengekspor CSV.',
+                    });
+                  } finally {
+                    setExportingType(null);
+                  }
                 }}
-                className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white p-4 text-left hover:bg-slate-50 transition-colors min-h-[60px]"
+                className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white p-4 text-left hover:bg-slate-50 disabled:opacity-60 transition-colors min-h-[60px]"
               >
                 <div>
                   <p className="text-sm font-bold text-slate-900">
-                    Download CSV (Google Sheets)
+                    {exportingType === 'csv'
+                      ? 'Menyiapkan File CSV...'
+                      : 'Download CSV (Google Sheets)'}
                   </p>
                   <p className="text-xs text-slate-500">
                     Langsung impor ke Google Sheets atau Excel

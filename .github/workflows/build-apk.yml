@@ -36,7 +36,7 @@ jobs:
 
       - name: Install Capacitor & generate Android project
         run: |
-          npm install --legacy-peer-deps @capacitor/core@^7 @capacitor/cli@^7 @capacitor/android@^7 @capacitor/assets
+          npm install --legacy-peer-deps @capacitor/core@^7 @capacitor/cli@^7 @capacitor/android@^7 @capacitor/filesystem@^7 @capacitor/share@^7 @capacitor/assets
           if [ ! -d "android" ]; then
             npx cap add android
           fi
