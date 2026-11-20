@@ -23,7 +23,15 @@ export function usePWAInstall() {
   const [wantsInstallFromUrl, setWantsInstallFromUrl] = useState(false);
 
   useEffect(() => {
+    const isCapacitorNative = Boolean(
+      (
+        window as unknown as {
+          Capacitor?: { isNativePlatform?: () => boolean };
+        }
+      ).Capacitor?.isNativePlatform?.()
+    );
     const isStandalone =
+      isCapacitorNative ||
       window.matchMedia('(display-mode: standalone)').matches ||
       (window.navigator as unknown as { standalone?: boolean }).standalone ===
         true;

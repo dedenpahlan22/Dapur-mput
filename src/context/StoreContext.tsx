@@ -32,7 +32,12 @@ import {
   db,
   handleFirestoreError,
   OperationType,
+  registerWithEmail,
+  reloadAuthUser,
+  resendVerificationEmail,
+  resetPasswordByEmail,
   resolvePendingRedirectAuth,
+  signInWithEmail,
   signInWithGoogle,
   signOutUser,
   testConnection,
@@ -83,6 +88,7 @@ interface ExpenseInput {
 
 interface StoreContextValue {
   user: User | null;
+  isEmailVerified: boolean;
   authReady: boolean;
   dataReady: boolean;
   store: UserStore | null;
@@ -94,6 +100,15 @@ interface StoreContextValue {
   activeSheetId: string;
   setActiveSheetId: (id: string) => void;
   loginWithGoogle: () => Promise<void>;
+  loginWithEmail: (email: string, password: string) => Promise<void>;
+  registerEmailAccount: (
+    email: string,
+    password: string,
+    displayName?: string
+  ) => Promise<void>;
+  resendEmailVerification: () => Promise<void>;
+  refreshEmailVerification: () => Promise<boolean>;
+  sendPasswordReset: (email: string) => Promise<void>;
   logout: () => Promise<void>;
   updateStoreBranding: (storeName: string, logoUrl: string) => Promise<void>;
   createSheet: (name: string, dateLabel?: string) => Promise<string>;
@@ -122,6 +137,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [dataReady, setDataReady] = useState(false);
   const [fatalError, setFatalError] = useState<Error | null>(null);
@@ -227,16 +243,30 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        try {
-          await ensureUserInitialized(firebaseUser);
-          setUser(firebaseUser);
-        } catch (err) {
-          setFatalError(
-            err instanceof Error ? err : new Error(String(err))
-          );
+        setUser(firebaseUser);
+        if (firebaseUser.emailVerified) {
+          try {
+            await ensureUserInitialized(firebaseUser);
+            setIsEmailVerified(true);
+          } catch (err) {
+            setFatalError(
+              err instanceof Error ? err : new Error(String(err))
+            );
+          }
+        } else {
+          setIsEmailVerified(false);
+          setStore(null);
+          setSheets([]);
+          setAreas([]);
+          setMenuItems([]);
+          setOrders([]);
+          setExpenses([]);
+          setActiveSheetId('');
+          setDataReady(false);
         }
       } else {
         setUser(null);
+        setIsEmailVerified(false);
         setStore(null);
         setSheets([]);
         setAreas([]);
@@ -253,7 +283,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [ensureUserInitialized]);
 
   useEffect(() => {
-    if (!authReady || !user) return;
+    if (!authReady || !user || !isEmailVerified) return;
     const uid = user.uid;
 
     const loadedFlags = {
@@ -409,10 +439,48 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       unsubOrders();
       unsubExpenses();
     };
-  }, [authReady, user]);
+  }, [authReady, user, isEmailVerified]);
 
   const loginWithGoogle = useCallback(async () => {
     await signInWithGoogle();
+  }, []);
+
+  const loginWithEmail = useCallback(
+    async (email: string, password: string) => {
+      const cred = await signInWithEmail(email, password);
+      if (cred.user.emailVerified) {
+        await cred.user.getIdToken(true);
+        await ensureUserInitialized(cred.user);
+        setIsEmailVerified(true);
+      }
+    },
+    [ensureUserInitialized]
+  );
+
+  const registerEmailAccount = useCallback(
+    async (email: string, password: string, displayName?: string) => {
+      await registerWithEmail(email, password, displayName);
+    },
+    []
+  );
+
+  const resendEmailVerification = useCallback(async () => {
+    await resendVerificationEmail();
+  }, []);
+
+  const refreshEmailVerification = useCallback(async () => {
+    const refreshed = await reloadAuthUser();
+    if (refreshed && refreshed.emailVerified) {
+      await ensureUserInitialized(refreshed);
+      setUser(refreshed);
+      setIsEmailVerified(true);
+      return true;
+    }
+    return false;
+  }, [ensureUserInitialized]);
+
+  const sendPasswordReset = useCallback(async (email: string) => {
+    await resetPasswordByEmail(email);
   }, []);
 
   const logout = useCallback(async () => {
@@ -864,6 +932,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   const value = useMemo<StoreContextValue>(
     () => ({
       user,
+      isEmailVerified,
       authReady,
       dataReady,
       store,
@@ -875,6 +944,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       activeSheetId,
       setActiveSheetId,
       loginWithGoogle,
+      loginWithEmail,
+      registerEmailAccount,
+      resendEmailVerification,
+      refreshEmailVerification,
+      sendPasswordReset,
       logout,
       updateStoreBranding,
       createSheet,
@@ -898,6 +972,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
     }),
     [
       user,
+      isEmailVerified,
       authReady,
       dataReady,
       store,
@@ -908,6 +983,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       expenses,
       activeSheetId,
       loginWithGoogle,
+      loginWithEmail,
+      registerEmailAccount,
+      resendEmailVerification,
+      refreshEmailVerification,
+      sendPasswordReset,
       logout,
       updateStoreBranding,
       createSheet,

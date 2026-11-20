@@ -203,10 +203,10 @@ export const SettingsView: React.FC = () => {
         <section className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-4">
           <div>
             <h2 className="font-display text-base font-bold text-slate-900">
-              Install di HP & Akun Google
+              Aplikasi & Akun Sinkronisasi
             </h2>
             <p className="text-xs text-slate-500">
-              Pasang aplikasi di layar utama HP & kelola sinkronisasi akun Google.
+              Kelola status pemasangan aplikasi & akun penyimpanan cloud Anda.
             </p>
           </div>
 
@@ -218,13 +218,13 @@ export const SettingsView: React.FC = () => {
                 {user.photoURL ? (
                   <img
                     src={user.photoURL}
-                    alt={user.displayName || 'Akun Google'}
+                    alt={user.displayName || 'Akun'}
                     referrerPolicy="no-referrer"
                     className="h-10 w-10 rounded-full border border-slate-200 object-cover"
                   />
                 ) : (
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100 text-sm font-bold text-orange-700">
-                    {(user.displayName || 'M')[0]}
+                    {(user.displayName || user.email || 'M')[0].toUpperCase()}
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
@@ -242,7 +242,7 @@ export const SettingsView: React.FC = () => {
                 className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50/70 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition-colors min-h-[42px]"
               >
                 <LogOut className="h-4 w-4" />
-                <span>Keluar dari Akun Google</span>
+                <span>Keluar dari Akun</span>
               </button>
             </div>
           )}

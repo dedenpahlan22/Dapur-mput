@@ -1,11 +1,17 @@
 import { initializeApp } from 'firebase/app';
 import {
+  createUserWithEmailAndPassword,
   getAuth,
   getRedirectResult,
   GoogleAuthProvider,
+  sendEmailVerification,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
   signInWithPopup,
   signInWithRedirect,
   signOut,
+  updateProfile,
+  type User,
 } from 'firebase/auth';
 import {
   doc,
@@ -137,6 +143,45 @@ export async function signInWithGoogle() {
     }
     throw err;
   }
+}
+
+export async function signInWithEmail(email: string, password: string) {
+  return signInWithEmailAndPassword(auth, email.trim(), password);
+}
+
+export async function registerWithEmail(
+  email: string,
+  password: string,
+  displayName?: string
+) {
+  const cred = await createUserWithEmailAndPassword(
+    auth,
+    email.trim(),
+    password
+  );
+  if (displayName?.trim()) {
+    await updateProfile(cred.user, { displayName: displayName.trim() });
+  }
+  await sendEmailVerification(cred.user);
+  return cred;
+}
+
+export async function resendVerificationEmail() {
+  if (!auth.currentUser) {
+    throw new Error('Tidak ada akun yang sedang masuk.');
+  }
+  await sendEmailVerification(auth.currentUser);
+}
+
+export async function reloadAuthUser(): Promise<User | null> {
+  if (!auth.currentUser) return null;
+  await auth.currentUser.reload();
+  await auth.currentUser.getIdToken(true);
+  return auth.currentUser;
+}
+
+export async function resetPasswordByEmail(email: string) {
+  await sendPasswordResetEmail(auth, email.trim());
 }
 
 export async function signOutUser() {

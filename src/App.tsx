@@ -33,7 +33,7 @@ const NAV_ITEMS: {
 ];
 
 const AppShell: React.FC = () => {
-  const { user, authReady, dataReady, store } = useStore();
+  const { user, isEmailVerified, authReady, dataReady, store } = useStore();
   const [activeTab, setActiveTab] = useState<AppTab>(() => {
     if (typeof window === 'undefined') return 'orders';
     const tab = new URLSearchParams(window.location.search).get('tab');
@@ -61,7 +61,7 @@ const AppShell: React.FC = () => {
     );
   }
 
-  if (!user) {
+  if (!user || !isEmailVerified) {
     return <LoginScreen />;
   }
 
