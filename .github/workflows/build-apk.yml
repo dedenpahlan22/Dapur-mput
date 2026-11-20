@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CI: true
+      npm_config_legacy_peer_deps: 'true'
 
     steps:
       - name: Checkout repository
@@ -35,7 +36,7 @@ jobs:
 
       - name: Install Capacitor & generate Android project
         run: |
-          npm install --no-save --legacy-peer-deps @capacitor/core@^7 @capacitor/cli@^7 @capacitor/android@^7 @capacitor/assets
+          npm install --legacy-peer-deps @capacitor/core@^7 @capacitor/cli@^7 @capacitor/android@^7 @capacitor/assets
           if [ ! -d "android" ]; then
             npx cap add android
           fi
